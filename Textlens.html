@@ -1,0 +1,578 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Textlens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: one centered column — input card on top, a stat grid and summary stacked beneath. */
+  :root {
+    --bg: #f5f6f3;
+    --surface: #ffffff;
+    --surface-2: #fbfbf9;
+    --ink: #1a1d1a;
+    --muted: #6a6f69;
+    --faint: #9a9f98;
+    --line: #e4e5e0;
+    --line-strong: #d6d8d1;
+    --accent: #2f6f5e;
+    --accent-ink: #21534699;
+    --accent-wash: #eaf1ee;
+    --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121412;
+      --surface: #1a1d1a;
+      --surface-2: #1f231f;
+      --ink: #eceeea;
+      --muted: #9ba09a;
+      --faint: #70756f;
+      --line: #2b2f2b;
+      --line-strong: #363b36;
+      --accent: #63b89f;
+      --accent-ink: #63b89f;
+      --accent-wash: #1d2a25;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121412;
+    --surface: #1a1d1a;
+    --surface-2: #1f231f;
+    --ink: #eceeea;
+    --muted: #9ba09a;
+    --faint: #70756f;
+    --line: #2b2f2b;
+    --line-strong: #363b36;
+    --accent: #63b89f;
+    --accent-ink: #63b89f;
+    --accent-wash: #1d2a25;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    width: 100%;
+    max-width: 780px;
+    margin-inline: auto;
+    padding-left: max(18px, env(safe-area-inset-left, 0px));
+    padding-right: max(18px, env(safe-area-inset-right, 0px));
+    padding-block: 34px 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  /* Header */
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: var(--accent); flex: none;
+    display: grid; place-items: center;
+  }
+  .brand .mark svg { width: 15px; height: 15px; display: block; }
+  .brand h1 { font-size: 1.12rem; font-weight: 650; letter-spacing: -0.02em; margin: 0; }
+  .tagline { color: var(--muted); font-size: 0.82rem; max-width: 42ch; }
+  .theme-btn {
+    font: inherit; font-size: 0.78rem; color: var(--muted);
+    background: transparent; border: 1px solid var(--line-strong);
+    border-radius: 999px; padding: 5px 12px; cursor: pointer;
+  }
+  .theme-btn:hover { color: var(--ink); border-color: var(--muted); }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* Input */
+  .seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button {
+    font: inherit; font-size: 0.82rem; font-weight: 500;
+    border: 0; background: transparent; color: var(--muted);
+    padding: 6px 14px; border-radius: 7px; cursor: pointer;
+  }
+  .seg button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+
+  textarea {
+    width: 100%; min-height: 190px; resize: vertical;
+    font-family: var(--font-ui); font-size: 0.95rem; line-height: 1.6;
+    color: var(--ink); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 11px;
+    padding: 14px; outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--faint); }
+
+  .drop {
+    border: 1.5px dashed var(--line-strong); border-radius: 11px;
+    padding: 30px 18px; text-align: center; color: var(--muted);
+    background: var(--surface-2); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .drop.drag { border-color: var(--accent); background: var(--accent-wash); color: var(--ink); }
+  .drop svg { width: 26px; height: 26px; color: var(--faint); }
+  .drop strong { color: var(--ink); font-weight: 600; }
+  .drop .hint { font-size: 0.78rem; }
+  .filechip {
+    margin-top: 12px; display: none; align-items: center; gap: 10px;
+    font-size: 0.84rem; background: var(--accent-wash); color: var(--ink);
+    border-radius: 9px; padding: 9px 12px;
+  }
+  .filechip svg { width: 15px; height: 15px; color: var(--accent); flex: none; }
+  .filechip .x { margin-left: auto; cursor: pointer; color: var(--muted); border: 0; background: none; font: inherit; padding: 2px 6px; }
+
+  .controls { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-weight: 600; font-size: 0.9rem;
+    background: var(--accent); color: #fff; border: 0;
+    border-radius: 10px; padding: 11px 20px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn.ghost { background: transparent; color: var(--muted); }
+  .btn.ghost:hover:not(:disabled) { color: var(--ink); }
+  .status { font-size: 0.8rem; color: var(--muted); }
+  .status.err { color: #c0493b; }
+
+  /* Results */
+  #results { display: none; flex-direction: column; gap: 22px; }
+  .grid {
+    display: grid; gap: 1px; background: var(--line);
+    border: 1px solid var(--line); border-radius: 13px; overflow: hidden;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .tile { background: var(--surface); padding: 15px 14px; }
+  .tile .n {
+    font-family: var(--font-mono); font-weight: 500;
+    font-size: 1.5rem; letter-spacing: -0.02em; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .tile .n small { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+  .tile .l {
+    margin-top: 3px; font-size: 0.72rem; color: var(--muted);
+    letter-spacing: 0.01em;
+  }
+
+  /* Frequency list */
+  .freq { display: flex; flex-direction: column; gap: 9px; }
+  .freq-row { display: grid; grid-template-columns: minmax(70px, 118px) 1fr auto; align-items: center; gap: 12px; }
+  .freq-row .w { font-size: 0.86rem; font-weight: 500; }
+  .bar-track { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+  .freq-row .c {
+    font-family: var(--font-mono); font-size: 0.76rem; color: var(--muted);
+    font-variant-numeric: tabular-nums; min-width: 2.4ch; text-align: right;
+  }
+  .note { font-size: 0.74rem; color: var(--faint); margin-top: 12px; }
+
+  /* Summary */
+  .summary-body { font-size: 0.95rem; line-height: 1.65; color: var(--ink); white-space: pre-wrap; }
+  .summary-body.placeholder { color: var(--faint); }
+  .pill {
+    font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+    border: 1px solid var(--line-strong); color: var(--muted);
+  }
+  .pill.ai { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-wash); }
+  .copy { font: inherit; font-size: 0.78rem; color: var(--muted); background: none; border: 1px solid var(--line-strong); border-radius: 8px; padding: 5px 11px; cursor: pointer; }
+  .copy:hover { color: var(--ink); border-color: var(--muted); }
+
+  .spinner {
+    width: 15px; height: 15px; border: 2px solid var(--line-strong);
+    border-top-color: var(--accent); border-radius: 50%;
+    display: inline-block; animation: spin 0.7s linear infinite; vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  @media (max-width: 560px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    .freq-row { grid-template-columns: minmax(64px, 96px) 1fr auto; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h11M4 18h7"/></svg>
+      </span>
+      <div>
+        <h1>Textlens</h1>
+      </div>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button">Dark</button>
+  </header>
+  <p class="tagline">Paste text or drop in a PDF to get readability stats, the words that carry the most weight, and a short summary.</p>
+
+  <!-- Input -->
+  <section class="card">
+    <div class="card-head">
+      <div class="seg" role="tablist" aria-label="Input method">
+        <button id="tabText" role="tab" aria-selected="true" type="button">Paste text</button>
+        <button id="tabPdf" role="tab" aria-selected="false" type="button">Upload PDF</button>
+      </div>
+      <span class="status" id="charLive"></span>
+    </div>
+
+    <div id="panelText">
+      <textarea id="input" placeholder="Paste or type anything — an essay, an article, a chapter, a report…"></textarea>
+    </div>
+
+    <div id="panelPdf" hidden>
+      <label class="drop" id="drop" for="file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span><strong>Choose a PDF</strong> or drag one here</span>
+        <span class="hint">Text is read from the file in your browser — nothing is uploaded.</span>
+      </label>
+      <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+      <div class="filechip" id="fileChip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        <span id="fileName">file.pdf</span>
+        <button class="x" id="fileClear" type="button" aria-label="Remove file">Remove</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="analyze" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        Analyze
+      </button>
+      <button class="btn ghost" id="sample" type="button">Try a sample</button>
+      <span class="status" id="status"></span>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="results">
+    <div>
+      <div class="card-head" style="margin-bottom:12px">
+        <span class="eyebrow">Overview</span>
+      </div>
+      <div class="grid" id="statGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="eyebrow">Most frequent words</span>
+      </div>
+      <div class="freq" id="freq"></div>
+      <p class="note">Common filler words (the, and, of, to…) are set aside so the list shows words that actually carry meaning.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="eyebrow">Summary</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="pill" id="summaryTag">—</span>
+          <button class="copy" id="copyBtn" type="button" hidden>Copy</button>
+        </span>
+      </div>
+      <div class="summary-body placeholder" id="summary">Run an analysis to generate a summary.</div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ---- PDF.js worker ----
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var input = $("input"), status = $("status"), charLive = $("charLive");
+
+  // ---- Theme toggle ----
+  var themeBtn = $("themeBtn");
+  function prefersDark() {
+    var attr = document.documentElement.getAttribute("data-theme");
+    if (attr) return attr === "dark";
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function syncThemeLabel() { themeBtn.textContent = prefersDark() ? "Light" : "Dark"; }
+  themeBtn.addEventListener("click", function () {
+    document.documentElement.setAttribute("data-theme", prefersDark() ? "light" : "dark");
+    syncThemeLabel();
+  });
+  syncThemeLabel();
+
+  // ---- Tabs ----
+  var tabText = $("tabText"), tabPdf = $("tabPdf");
+  var panelText = $("panelText"), panelPdf = $("panelPdf");
+  function selectTab(which) {
+    var isText = which === "text";
+    tabText.setAttribute("aria-selected", isText);
+    tabPdf.setAttribute("aria-selected", !isText);
+    panelText.hidden = !isText;
+    panelPdf.hidden = isText;
+  }
+  tabText.addEventListener("click", function () { selectTab("text"); });
+  tabPdf.addEventListener("click", function () { selectTab("pdf"); });
+
+  // ---- Live char count ----
+  function updateLive() {
+    var n = input.value.length;
+    charLive.textContent = n ? n.toLocaleString() + " characters" : "";
+  }
+  input.addEventListener("input", updateLive);
+
+  // ---- PDF handling ----
+  var file = $("file"), drop = $("drop"), fileChip = $("fileChip"),
+      fileName = $("fileName"), fileClear = $("fileClear");
+  var pdfText = "";
+
+  function setStatus(msg, isErr) {
+    status.textContent = msg || "";
+    status.className = "status" + (isErr ? " err" : "");
+  }
+
+  async function readPdf(f) {
+    if (!window.pdfjsLib) { setStatus("PDF reader didn't load — paste the text instead.", true); return; }
+    setStatus("Reading " + f.name + " …");
+    pdfText = "";
+    try {
+      var buf = await f.arrayBuffer();
+      var pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      var parts = [];
+      for (var p = 1; p <= pdf.numPages; p++) {
+        var page = await pdf.getPage(p);
+        var content = await page.getTextContent();
+        parts.push(content.items.map(function (it) { return it.str; }).join(" "));
+      }
+      pdfText = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
+      fileName.textContent = f.name;
+      fileChip.style.display = "flex";
+      if (!pdfText) {
+        setStatus("No selectable text found — this PDF may be scanned images.", true);
+      } else {
+        setStatus(pdfText.split(/\s+/).length.toLocaleString() + " words read from " + pdf.numPages + " page(s).");
+      }
+    } catch (e) {
+      setStatus("Couldn't read that PDF. Try pasting the text instead.", true);
+      pdfText = "";
+    }
+  }
+  file.addEventListener("change", function () { if (file.files[0]) readPdf(file.files[0]); });
+  fileClear.addEventListener("click", function (e) {
+    e.preventDefault(); pdfText = ""; file.value = ""; fileChip.style.display = "none"; setStatus("");
+  });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("drag"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("drag"); });
+  });
+  drop.addEventListener("drop", function (e) {
+    var f = e.dataTransfer.files[0];
+    if (f && /pdf/i.test(f.type + f.name)) readPdf(f);
+    else setStatus("Please drop a PDF file.", true);
+  });
+
+  // ---- Analysis ----
+  var STOP = ("a an the and or but if then else of to in on at by for with without from up down over under again " +
+    "is are was were be been being am do does did doing have has had having will would shall should can could may might must " +
+    "i you he she it we they me him her us them my your his its our their this that these those as so than too very just not no " +
+    "about into out off also only own same such other more most some any each few all both there here what which who whom whose " +
+    "when where why how because while during before after above below between through them they're it's i'm you're").split(" ");
+  var STOPSET = {}; STOP.forEach(function (w) { STOPSET[w] = 1; });
+
+  function splitSentences(text) {
+    var raw = text.replace(/\s+/g, " ").match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
+    return raw.map(function (s) { return s.trim(); }).filter(function (s) { return /[a-z0-9]/i.test(s); });
+  }
+  function words(text) { return (text.toLowerCase().match(/[a-z0-9']+/g) || []); }
+
+  function analyze(text) {
+    var w = (text.trim().match(/\S+/g) || []);
+    var wordCount = w.length;
+    var chars = text.length;
+    var charsNoSpace = text.replace(/\s/g, "").length;
+    var sentences = splitSentences(text);
+    var paragraphs = text.split(/\n\s*\n/).filter(function (p) { return p.trim(); });
+    var tokens = words(text);
+    var uniq = {}; tokens.forEach(function (t) { uniq[t] = 1; });
+    var uniqueCount = Object.keys(uniq).length;
+    var avgWordLen = tokens.length ? tokens.reduce(function (a, t) { return a + t.length; }, 0) / tokens.length : 0;
+    var avgSentLen = sentences.length ? wordCount / sentences.length : 0;
+
+    var freq = {};
+    tokens.forEach(function (t) { if (!STOPSET[t] && t.length > 2 && !/^\d+$/.test(t)) freq[t] = (freq[t] || 0) + 1; });
+    var top = Object.keys(freq).map(function (k) { return [k, freq[k]]; })
+      .sort(function (a, b) { return b[1] - a[1] || a[0].localeCompare(b[0]); }).slice(0, 10);
+
+    return {
+      wordCount: wordCount, chars: chars, charsNoSpace: charsNoSpace,
+      sentences: sentences, sentenceCount: sentences.length,
+      paragraphs: paragraphs.length || (wordCount ? 1 : 0),
+      unique: uniqueCount, avgWordLen: avgWordLen, avgSentLen: avgSentLen,
+      readMin: wordCount / 200, top: top, tokens: tokens, freq: freq
+    };
+  }
+
+  // Extractive fallback summary — score sentences by meaningful word frequency.
+  function extractive(a) {
+    if (a.sentenceCount <= 3) return a.sentences.join(" ");
+    var scored = a.sentences.map(function (s, i) {
+      var sw = words(s).filter(function (t) { return !STOPSET[t] && t.length > 2; });
+      var score = sw.reduce(function (sum, t) { return sum + (a.freq[t] || 0); }, 0);
+      return { i: i, s: s, score: sw.length ? score / Math.sqrt(sw.length) : 0 };
+    });
+    var keep = Math.max(3, Math.round(a.sentenceCount * 0.28));
+    var chosen = scored.slice().sort(function (x, y) { return y.score - x.score; }).slice(0, keep);
+    chosen.sort(function (x, y) { return x.i - y.i; });
+    return chosen.map(function (c) { return c.s; }).join(" ");
+  }
+
+  // ---- Rendering ----
+  function fmt(n) { return Math.round(n).toLocaleString(); }
+  function renderStats(a) {
+    var rt = a.readMin < 1 ? "<1<small> min</small>" : fmt(a.readMin) + "<small> min</small>";
+    var tiles = [
+      [a.wordCount.toLocaleString(), "Words"],
+      [a.chars.toLocaleString(), "Characters"],
+      [a.sentenceCount.toLocaleString(), "Sentences"],
+      [a.paragraphs.toLocaleString(), "Paragraphs"],
+      [rt, "Reading time"],
+      [a.unique.toLocaleString(), "Unique words"],
+      [a.avgSentLen.toFixed(1), "Avg words / sentence"],
+      [a.avgWordLen.toFixed(1), "Avg word length"]
+    ];
+    $("statGrid").innerHTML = tiles.map(function (t) {
+      return '<div class="tile"><div class="n">' + t[0] + '</div><div class="l">' + t[1] + '</div></div>';
+    }).join("");
+  }
+  function renderFreq(a) {
+    var host = $("freq");
+    if (!a.top.length) { host.innerHTML = '<p class="note">Not enough text to rank words.</p>'; return; }
+    var max = a.top[0][1];
+    host.innerHTML = a.top.map(function (t) {
+      var pct = Math.max(6, Math.round(t[1] / max * 100));
+      return '<div class="freq-row"><span class="w"></span>' +
+        '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%"></span></span>' +
+        '<span class="c">' + t[1] + '</span></div>';
+    }).join("");
+    // set words via textContent to stay safe
+    var rows = host.querySelectorAll(".freq-row .w");
+    a.top.forEach(function (t, i) { rows[i].textContent = t[0]; });
+  }
+
+  var summaryEl = $("summary"), summaryTag = $("summaryTag"), copyBtn = $("copyBtn");
+
+  async function makeSummary(a, text) {
+    summaryEl.classList.remove("placeholder");
+    summaryEl.innerHTML = '<span class="spinner"></span> Reading through it…';
+    summaryTag.textContent = "working";
+    summaryTag.className = "pill";
+    copyBtn.hidden = true;
+
+    var ai = null;
+    try { ai = window.claude && claude.use ? await claude.use("sample") : null; } catch (e) { ai = null; }
+
+    if (ai) {
+      var capped = text.length > 24000 ? text.slice(0, 24000) : text;
+      var prompt =
+        "Summarize the text below in 3 to 5 clear sentences. Capture its main ideas and most important points in neutral prose. " +
+        "Do not open with a phrase like \"This text is about\" or \"The author\"; just state the content directly.\n\n" +
+        "TEXT:\n" + capped;
+      try {
+        var res = await ai(prompt, {
+          modelTier: "default",
+          onText: function (p) { summaryEl.textContent = p.text; }
+        });
+        summaryEl.textContent = (res && res.text ? res.text : "").trim() || extractive(a);
+        summaryTag.textContent = "AI summary";
+        summaryTag.className = "pill ai";
+        copyBtn.hidden = false;
+        return;
+      } catch (e) { /* fall through to extractive */ }
+    }
+
+    // Fallback
+    summaryEl.textContent = extractive(a);
+    summaryTag.textContent = "key-sentence summary";
+    summaryTag.className = "pill";
+    copyBtn.hidden = false;
+  }
+
+  copyBtn.addEventListener("click", function () {
+    var t = summaryEl.textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(function () {
+        copyBtn.textContent = "Copied"; setTimeout(function () { copyBtn.textContent = "Copy"; }, 1400);
+      }).catch(selectText);
+    } else selectText();
+    function selectText() {
+      var r = document.createRange(); r.selectNodeContents(summaryEl);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    }
+  });
+
+  // ---- Run ----
+  var results = $("results");
+  async function run() {
+    var isPdf = tabPdf.getAttribute("aria-selected") === "true";
+    var text = isPdf ? pdfText : input.value;
+    if (!text || text.trim().split(/\s+/).length < 5) {
+      setStatus(isPdf ? "Load a PDF with readable text first." : "Add a bit more text to analyze.", true);
+      return;
+    }
+    setStatus("");
+    var a = analyze(text);
+    renderStats(a);
+    renderFreq(a);
+    results.style.display = "flex";
+    results.scrollIntoView({ behavior: "smooth", block: "start" });
+    makeSummary(a, text);
+  }
+  $("analyze").addEventListener("click", run);
+
+  // ---- Sample text ----
+  $("sample").addEventListener("click", function () {
+    selectTab("text");
+    input.value = SAMPLE;
+    updateLive();
+    run();
+  });
+
+  var SAMPLE =
+    "The printing press, introduced to Europe by Johannes Gutenberg around 1440, did far more than speed up the copying of books. " +
+    "Before it, a single manuscript could take a scribe months to reproduce, and errors crept in with every copy. " +
+    "Printing made texts cheaper, more consistent, and suddenly available to people who had never owned a book in their lives. " +
+    "Literacy began to climb as reading material spread beyond monasteries and universities into ordinary towns. " +
+    "Ideas that once travelled slowly, passed from one careful hand to another, could now cross a continent in a matter of weeks. " +
+    "This new speed had consequences no one had planned for. Religious reformers printed pamphlets by the thousand, and their arguments " +
+    "reached audiences that the church could not easily control. Scientists shared observations and built openly on one another's work, " +
+    "turning isolated discoveries into a shared and growing body of knowledge. Governments, merchants, and rebels alike learned that " +
+    "whoever controlled the press held a powerful instrument of persuasion. In a very real sense, the modern world of newspapers, " +
+    "public debate, and mass education grew out of a single mechanical invention that let words be copied faithfully and cheaply at scale.";
+
+})();
+</script>
+
+</body></html>
